@@ -1,0 +1,83 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/CPU.hdl
+
+/**
+ * The Hack CPU (Central Processing unit), consisting of an ALU,
+ * two registers named A and D, and a program counter named PC.
+ * The CPU is designed to fetch and execute instructions written in 
+ * the Hack machine language. In particular, functions as follows:
+ * Executes the inputted instruction according to the Hack machine 
+ * language specification. The D and A in the language specification
+ * refer to CPU-resident registers, while M refers to the external
+ * memory location addressed by A, i.e. to Memory[A]. The inM input 
+ * holds the value of this location. If the current instruction needs 
+ * to write a value to M, the value is placed in outM, the address 
+ * of the target location is placed in the addressM output, and the 
+ * writeM control bit is asserted. (When writeM==0, any value may 
+ * appear in outM). The outM and writeM outputs are combinational: 
+ * they are affected instantaneously by the execution of the current 
+ * instruction. The addressM and pc outputs are clocked: although they 
+ * are affected by the execution of the current instruction, they commit 
+ * to their new values only in the next time step. If reset==1 then the 
+ * CPU jumps to address 0 (i.e. pc is set to 0 in next time step) rather 
+ * than to the address resulting from executing the current instruction. 
+ */
+
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+    // Put your code here:
+	Not(in=instruction[15], out=isa);
+	// If it is a instruction, switch to input dirctly else switch to computation from cpu.
+	Mux16(a=res, b=instruction, sel=isa, out=toa);
+
+	//two case, case 1 is tht we have an instruction, case 2 is that we have c instruction but we write to a 
+	//in both cases, we turn on the a register.
+	Or(a=isa, b=instruction[5], out=aon);
+	ARegister(in=toa, load=aon, out=rega, out[0..14]=addressM); //if it is an a instruction, output remain same.
+
+	//write to m is true if we have a c instruction and the write bit is true.
+	And(a=instruction[15], b=instruction[3], out=mon, out=writeM);
+
+	//set up d-register.
+	//we change the d register, only when we have a c instruction and the d write bit is on.
+	And(a=instruction[4], b=instruction[15], out=don); 
+	DRegister(in=res, load=don, out=regd);
+
+	//select which two values to compute.
+	Mux16(a=rega, b=inM, sel=instruction[12], out=seldata);
+
+	//compute alu, alu starts with d register, compute d with either a or m
+	ALU(x=regd ,y=seldata ,zx=instruction[11] ,nx=instruction[10] ,zy=instruction[9] ,ny=instruction[8] ,
+		f=instruction[7] ,no=instruction[6] ,out=outM, out=res,zr=iszero ,ng=isnegative);
+
+	//check the computation result with zero.
+	//check whether the result computed is positive.
+	Not(in=isnegative, out=notnegative);
+	Not(in=iszero, out=notzero);
+	And(a=notnegative, b=notzero, out=ispositive);
+
+	And(a=ispositive, b=instruction[0], out=rpositive); //result is positive.
+	And(a=iszero, b=instruction[1], out=rzero);
+	And(a=isnegative, b=instruction[2], out=rnegative);
+	//only one above is true, at the same time, we have a c instruction, then we change the pc.
+	Or(a=rpositive, b=rzero, out=temp1);
+	Or(a=temp1, b=rnegative, out=temp2);
+	And(a=instruction[15], b=temp2, out=changecounter);
+
+	//reset the counter.
+	PC(in=rega, load=changecounter, inc=true, reset=reset, out[0..14]=pc);
+}
