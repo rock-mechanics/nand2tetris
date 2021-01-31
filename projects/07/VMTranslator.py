@@ -82,7 +82,9 @@ class Parser():
 
 class CodeWriter():
 	def __init__(self,fname):
+		#file name consists of paths seprated by /
 		self.name = fname.split('.')[0]
+		self.name = self.name.split('/')[-1]
 		self.outputf =open(fname, 'w')
 		self.outputf =open(fname, 'a')
 		self.labelcounter = 0
@@ -188,47 +190,49 @@ class CodeWriter():
 			popcode += "@"+index+"\n"
 			popcode += "D=A\n"
 			popcode += "@LCL\n"
-			popcode += "AD=A+D\n" #find the address of memeory
+			popcode += "AD=M+D\n" #find the address of memeory
 			pushcode += popcode
 			pushcode += "D=M\n" #save the content into D register
 		elif segment == "argument":
 			popcode += "@"+index+"\n"
 			popcode += "D=A\n"
 			popcode += "@ARG\n"
-			popcode += "AD=A+D\n" #find the address of memeory
+			popcode += "AD=M+D\n" #find the address of memeory
 			pushcode += popcode
 			pushcode += "D=M\n" #save the content into D register
 		elif segment == "this":
 			popcode += "@"+index+"\n"
 			popcode += "D=A\n"
 			popcode += "@THIS\n"
-			popcode += "AD=A+D\n" #find the address of memeory
+			popcode += "AD=M+D\n" #find the address of memeory
 			pushcode += popcode
 			pushcode += "D=M\n" #save the content into D register
 		elif segment == "that":
 			popcode += "@"+index+"\n"
 			popcode += "D=A\n"
 			popcode += "@THAT\n"
-			popcode += "AD=A+D\n" #find the address of memeory
+			popcode += "AD=M+D\n" #find the address of memeory
 			pushcode += popcode
 			pushcode += "D=M\n" #save the content into D register
 		elif segment == "static":
-			popcode += "@"+ self.name + "." + index
+			popcode += "@"+ self.name + "." + index +"\n"
 			popcode += "D=A\n"
 			pushcode += popcode
 			pushcode += "D=M\n" #save the content into D register
 		elif segment == "temp":
-			popcode += "@"+(int(index)+5)+"\n"
+			popcode += "@"+str(int(index)+5)+"\n"
 			popcode += "D=A\n"
 			pushcode += popcode
 			pushcode += "D=M\n" #save the content into D register
 		elif segment == "pointer":
 			if index == "0" : 
-				popcode = "@THIS\n"
+				popcode += "@THIS\n"
+				popcode += "D=A\n"
 				pushcode += popcode
 				pushcode += "D=M\n" #save the content into D register
 			else:
-				readvalue = "THAT"
+				popcode += "@THAT\n"
+				popcode += "D=A\n"
 				pushcode += popcode
 				pushcode += "D=M\n" #save the content into D register
 
@@ -241,8 +245,13 @@ class CodeWriter():
 				acode += "M=M+1\n"
 		elif command == C_POP : 
 				acode += popcode # save memory address to D
+				acode += "@R5\n" # tempo location
+				acode += "M=D\n" # save the address
 				acode += "@SP\n"
 				acode += "AM=M-1\n" #decrease the stack pointer
+				acode += "D=M\n" #content of top stack
+				acode += "@R5\n"
+				acode += "A=M\n"
 				acode += "M=D\n"
 
 		self.outputf.write(acode)
